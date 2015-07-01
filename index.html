@@ -11,7 +11,9 @@
 
     <script>
 
-    var mapString = "0001111111111111111111111111100000010000000000100000000000001000000100010000000100000000000010000010000100000000000000000000010001000000100000110000000000000011100000000111110000000000000000011000000000000000000000000000000110000000000000000000000000000001100000000000000000000000000000011000000000000000000000000000000110000000000000000000000000000001100000000000000000000000000000011000000000000000000000000000000110000000000000000000000000000001100000000000000000000000000000011000000000000000000000000000000110000000000000000000000000000001100000000000000000000000000000011000000000000000000000000000000110000000000000000000000000000001100000000000000000000000000000011000000011111100000000000000000110000001000000100000000000000001100000010000000100000000000000011000000100000000100000000000000110000000000000000000000000000001100000000000000000000000000000011000000000000000000000000000000110000000000000000000000000000001100000000000000000000000000000011000000000000000000000000000000111111111111111111111111111111111";
+    //http://www.permadi.com/tutorial/raycast/index.html
+
+    var mapString = "0001111111111111111111111111100000010000000000100000000000001000000100010000000100000000000010000010000100000000000000000000010001000000100000110000000000000011100000000111110000000000000000011000000000000000000000000000000110000000000000000000000000000001100000000000000000000000000000011000000000000000000000000000000110000000000000000000000000000001100000000000000000000000000000011000000000000000000000000000000110000000000000000000000000000001100000000111111100000000000000011000000000000000000000000000000110000000000000000000000000000001100000000000000000000000000000011000000000000000000000000000000110000000000000000000000000000001100000000000000000000000000000011000000011111100000000000000000110000001000000100000000000000001100000010000000100000000000000011000000100000000100000000000000110000000000000000000000000000001100000000000000000000000000000011000000000000000000000000000000110000000000000000000000000000001100000000000000000000000000000011000000000000000000000000000000111111111111111111111111111111111";
 
       var enableRain = false;
       var enableLightning = false;
@@ -68,8 +70,12 @@
         this.skybox = new Bitmap('assets/sky.png', 512, 256);
         this.wallTexture = new Bitmap('assets/wall.png', 64, 64);
         this.light = 0;
-        this.objects = [];
+        this.objects = [];  //SPRITES ARRAY
+        this.foundWall = false;
       }
+
+
+
       Map.prototype.get = function(x, y) {
         x = Math.floor(x);
         y = Math.floor(y);
@@ -80,7 +86,15 @@
       Map.prototype.getObject = function(x,y) {
         x = Math.floor(x);
         y = Math.floor(y);
-        return this.objects[y * this.size + x];
+
+        
+
+        object = this.objects[y * this.size + x];
+        if (object) {
+          console.log("X" + x + "\n");
+          console.log(" Y" + y);
+        };
+        return  object;
       };
 
       Map.prototype.randomize = function() {
@@ -96,10 +110,26 @@
         var sin = Math.sin(angle);
         var cos = Math.cos(angle);
         var noWall = { length2: Infinity };
-        return ray({ x: point.x, y: point.y, height: 0, distance: 0 });
+        
+        var new_ray = ray({
+          x: point.x,
+          y: point.y,
+          height: 0,
+          distance: 0
+        });
+        this.foundWall = false;
+        return new_ray
+        
+
+        
+
+
         function ray(origin) {
           var stepX = step(sin, cos, origin.x, origin.y);
           var stepY = step(cos, sin, origin.y, origin.x, true);
+
+          // if (this.foundWall) return [origin];
+
           var nextStep = stepX.length2 < stepY.length2
             ? inspect(stepX, 1, 0, origin.distance, stepX.y)
             : inspect(stepY, 0, 1, origin.distance, stepY.x);
@@ -120,8 +150,15 @@
           var dx = cos < 0 ? shiftX : 0;
           var dy = sin < 0 ? shiftY : 0;
           step.height = self.get(step.x - dx, step.y - dy);
+          if (step.height == 1) {
+            // console.log("FOUDN");
+            this.foundWall = true;
+          };
           step.distance = distance + Math.sqrt(step.length2);
-          step.object = self.getObject(step.x - dx, step.y - dy);
+          if (!this.foundWall) {
+            // console.log("SET OBJECT");
+            step.object = self.getObject(step.x - dx, step.y - dy);
+          };
           if (shiftX) step.shading = cos < 0 ? 2 : 0;
           else step.shading = sin < 0 ? 2 : 1;
           step.offset = offset - Math.floor(offset);
@@ -145,6 +182,8 @@
         this.fov = focalLength;
         this.lightRange = 5;
         this.scale = (this.width + this.height) / 1200;
+        this.printedlog = 300;
+        this.hitDistance = 0;
       }
       Camera.prototype.render = function(player, map) {
         this.drawSky(player.direction, map.skybox, map.light);
@@ -192,13 +231,6 @@
           screenRatio = screenWidth / this.fov,
           resolution = this.resolution;
 
-        //probably should get these and pass them in, but modifying originals for now
-        // also this limits size of world
-
-        // calculate each sprite distance to player
-        //this.setSpriteDistances(map.objects, player);   //I CAN DELETE THIS, PROBABLY
-
-
         var sprites = Array.prototype.slice.call(map.objects)
           .map(function(sprite){
 
@@ -220,6 +252,10 @@
               firstColumn = Math.floor( (cameraXOffset - width/2 ) / screenWidth * resolution);
 
             sprite.distanceFromPlayer = Math.sqrt( Math.pow( distX, 2) + Math.pow( distY, 2) );
+
+
+
+
             sprite.render = {
               width: width,
               height: height,
@@ -231,7 +267,7 @@
               top: top
             };
 
-            console.log(sprite);
+//            console.log(sprite);
 
             return sprite;
           })
@@ -262,14 +298,30 @@
           columnWidth = this.width / this.resolution,
           sprite,props,obj,textureX,height,projection, mappedColumnObj,spriteIsInColumn,top;
 
+          
+
         //todo: make rays check for objects, and return those that it actually hit
 
         //check if ray hit an object
         //if(!columnProps.objects.length){return;}
 
+        
+
         sprites = sprites.filter(function(sprite){
+          
+
          return !columnProps.hit || sprite.distanceFromPlayer < columnProps.hit;
         });
+
+        // if (this.printedlog != 150) {
+        //     this.printedlog--;
+        //     console.log(
+        //     "sprite.distanceFromPlayer: " + sprites[0].distanceFromPlayer + "\n" +
+        //     "columnProps.hit: " + columnProps.hit + "\n"
+        //     );
+        //   }
+
+
 
 
         for(var i = 0; i < sprites.length; i++){
@@ -277,6 +329,19 @@
 
           //determine if sprite should be drawn based on current column position and sprite width
           spriteIsInColumn =  left > sprite.render.cameraXOffset - ( sprite.render.width / 2 ) && left < sprite.render.cameraXOffset + ( sprite.render.width / 2 );
+
+          // if (this.printedlog != 0) {
+          //   this.printedlog--;
+          //   console.log(
+          //   "angle: " + angle + "\n" + 
+          //   "left: " + left + "\n" + 
+          //   "width: " + width + "\n" + 
+          //   "columnWidth: " + columnWidth + "\n" +
+          //   "sprite.render.cameraXOffset: " + sprite.render.cameraXOffset + "\n" + 
+          //   "sprite.render.width: " + sprite.render.width + "\n" +
+          //   "spriteIsInColumn: " + spriteIsInColumn + "\n"
+          //   );
+          // };
 
 
           if(spriteIsInColumn){
@@ -292,7 +357,7 @@
             sprite.texture.image.style.filter = 'brightness(' + brightness  + '%)';
             
             ctx.drawImage(sprite.texture.image, textureX, 0, 1, sprite.texture.height, left, sprite.render.top, width, sprite.render.height);
-            console.log("ehy");
+            // console.log("ehy");
           }
 
           
@@ -307,19 +372,24 @@
         var top = this.height * 0.6 + bobY;
         this.ctx.drawImage(weapon.image, left, top, weapon.width * this.scale, weapon.height * this.scale);
       };
+
+
+
       Camera.prototype.drawColumn = function(columnIdx, ray, angle, map) {
         var ctx = this.ctx;
         var texture = map.wallTexture;
         var left = Math.floor(columnIdx * this.spacing);
         var width = Math.ceil(this.spacing);
         var hit = -1;
-        var hitDistance;
+        // var hitDistance;
+        this.hitDistance = 0;
         var objects = [];
+
 
         while (++hit < ray.length && ray[hit].height <= 0);
         for (var s = ray.length - 1; s >= 0; s--) {
           var step = ray[s];
-          hitDistance = step.distance;
+          
           var rainDrops = enableRain ? (Math.pow(Math.random(), 3) * s) : 0;
           var rain = (rainDrops > 0) && this.project(0.1, angle, step.distance);
           if (s === hit) {
@@ -333,20 +403,24 @@
               ctx.globalAlpha = Math.max((step.distance + step.shading) / this.lightRange - map.light, 0);
               ctx.fillRect(left, wall.top, width, wall.height);
             };
-          } else if(step.object) {
-              objects.push({
-                object: step.object,
-                distance: step.distance,
-                offset: step.offset,
-                angle: angle
-              });
+            this.hitDistance = step.distance;
+
+          } else if(step.object) {  //HERE WE PUSH THE SPRITES WE WANT TO DRAW
+
+              // objects.push({
+              //   object: step.object,
+              //   distance: step.distance,
+              //   offset: step.offset,
+              //   angle: angle
+              // });
           }
 
           ctx.fillStyle = '#ffffff';
           ctx.globalAlpha = 0.15;
           while (--rainDrops > 0) ctx.fillRect(left, Math.random() * rain.top, 1, rain.height);
         }
-        return { objects: objects, hit: hitDistance }
+        console.log(this.hitDistance);
+        return { objects: objects, hit: this.hitDistance }
       };
       Camera.prototype.project = function(height, angle, distance) {
         var z = distance * Math.cos(angle);
@@ -373,7 +447,7 @@
         requestAnimationFrame(this.frame);
       };
       var display = document.getElementById('display');
-      var player = new Player(16, 16, Math.PI * 0.3);
+      var player = new Player(10, 10, Math.PI * 0.3);
       var map = new Map(32);
       var controls = new Controls();
       var camera = new Camera(display, 320, 0.8);
@@ -386,8 +460,8 @@
           width: .225,
           floorOffset: 0,
           speed: .1,
-          x: 16.5,
-          y: 16.5
+          x: 16,
+          y: 16
           }
         );
       
